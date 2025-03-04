@@ -1,0 +1,60 @@
+body {
+  background-color: #2c2c2c;
+  font-family: 'Courier New', Courier, monospace;
+  color: #f2f2f2;
+  overflow: hidden;
+}
+
+#menu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-size: 24px;
+  z-index: 100;
+}
+
+button {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 20px;
+  color: #f2f2f2;
+  background-color: #5f5f5f;
+  border: 2px solid #888;
+  padding: 15px 30px;
+  margin: 10px;
+  cursor: pointer;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+  background-image: url('https://www.transparenttextures.com/patterns/metallic-wall-1.png');
+  background-size: cover;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background-color: #3f3f3f;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+button:active {
+  background-color: #2f2f2f;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.6);
+}
+
+.pause-menu {
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  border-radius: 10px;
+  display: inline-block;
+}
+
+h2 {
+  color: #ff8c00;
+  font-size: 30px;
+  margin: 10px 0;
+  font-family: 'Courier New', Courier, monospace;
+}
