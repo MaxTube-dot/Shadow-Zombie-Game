@@ -4,6 +4,7 @@ import {Bullet} from "./bullet.ts";
 import {Enemy} from "./enemy.ts";
 import {RoadSegment} from "./roadSegment.ts";
 import {Road} from "./road.ts";
+import {Vector3} from "three";
 
 export class Game {
     private scene: THREE.Scene;
@@ -17,7 +18,6 @@ export class Game {
     private lanePositions: number[];
     private playerSpeed: number;
     private targetLane: number;
-    private roadSegments: RoadSegment[];
     private bullets: any[];
     private enemies: Enemy[];
     private clock: THREE.Clock;
@@ -41,7 +41,6 @@ export class Game {
         this.lanePositions = [-5, 0, 5];
         this.playerSpeed = 0.1;
         this.targetLane = 1;
-        this.roadSegments = [];
         this.bullets = [];
         this.roads = [];
         this.enemies = [];
@@ -142,19 +141,9 @@ export class Game {
     }
 
     createInitialRoads() {
-        for (let laneIndex = 0; laneIndex < this.lanePositions.length; laneIndex++) {
-            for (let i = 0; i < this.numSegments; i++) {
-                this.createRoadSegment(laneIndex, -this.roadLength * i);
-            }
-
-        }
         this.roads.push(new Road(this.scene));
     }
 
-       createRoadSegment(laneIndex:number, zPosition:number) {
-        const roadSegment = new RoadSegment(this.lanePositions, laneIndex, zPosition, this.roadWidth, this.roadLength, this.scene);
-        this.roadSegments.push(roadSegment);
-    }
 
     spawnEnemy() {
         const zPosition = -this.roadLength;
@@ -175,12 +164,21 @@ export class Game {
             this.player.update(deltaTime);
         }
 
+        const lastRoad = this.roads[this.roads.length - 1];
+        if (lastRoad && lastRoad.position.z >= 20) {
+            debugger;
+            const newRoad = new Road(this.scene, new Vector3(lastRoad.position.x, lastRoad.position.y, lastRoad.position.z -  lastRoad.roadLen) );
+            this.roads.push(newRoad);
+        }
 
-        this.roads = this.roads.filter(road => road && road.position && road.position.z < 170 );
+
         this.roads.forEach((road) => {
-            debugger
             road.update(deltaTime);
-        })
+        });
+
+        this.roads = this.roads.filter(road => road.position && road.position.z < 200);
+
+
         // Обновляем и проверяем врагов
         this.enemies.forEach((enemy, index) => {
             enemy.update(deltaTime);

@@ -15,4 +15,6 @@ export abstract class ModelObject {
             this.mixer.update(deltaTime);
         }
     }
+
+
 }
