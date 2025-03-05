@@ -2,27 +2,39 @@ import * as THREE from 'three';
 import {Player} from "./player.ts";
 import {Bullet} from "./bullet.ts";
 import {Enemy} from "./enemy.ts";
-import {RoadSegment} from "./roadSegment.ts";
 import {Road} from "./road.ts";
 import {Vector3} from "three";
+import {ModelObject} from "./modelObject.ts";
+import {BonusMin} from "./BonusMin.ts";
 
 export class Game {
     private scene: THREE.Scene;
     private camera: THREE.PerspectiveCamera;
     private renderer: THREE.WebGLRenderer;
-    private roadWidth: number;
-    private roadLength: number;
-    private numSegments: number;
+    private spawnEneemyStart: number;
     private gameIsStarted: boolean;
     private isPaused: boolean;
     private lanePositions: number[];
-    private playerSpeed: number;
     private targetLane: number;
     private bullets: any[];
     private enemies: Enemy[];
+    private bonuses: BonusMin[];
     private clock: THREE.Clock;
     private player: Player;
     private roads: Road[];
+
+
+    get Models() {
+        let objects: ModelObject[] = [
+            ...this.roads,
+            ...this.enemies,
+            ...this.bullets,
+            ...this.bonuses,
+        ];
+        objects.push(this.player)
+        return objects;
+    };
+
 
 
     constructor() {
@@ -35,11 +47,8 @@ export class Game {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        this.roadWidth = 4.9;
-        this.roadLength = 150;
-        this.numSegments = 3;
+        this.spawnEneemyStart = 55;
         this.lanePositions = [-5, 0, 5];
-        this.playerSpeed = 0.1;
         this.targetLane = 1;
         this.bullets = [];
         this.roads = [];
@@ -49,15 +58,6 @@ export class Game {
 
 
         this.clock = new THREE.Clock();
-        this.init();
-
-        // Спавним врагов каждую секунду
-        setInterval(() => {
-            this.spawnEnemy();
-        }, 1000);
-    }
-
-    init() {
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(0, 10, 10);
         this.scene.add(light);
@@ -71,7 +71,12 @@ export class Game {
         window.addEventListener('keydown', (event) => this.onKeyDown(event));
 
         this.setupUI();
+
+        setInterval(() => {
+            this.spawnEnemy();
+        }, 1000);
     }
+
 
     setupUI() {
         this.showStart();
@@ -111,12 +116,23 @@ export class Game {
         this.showPause();
         this.hideStartMenu();
         this.animate();
+        this.startShooting(this.player.shootingInterval);
 
 
         if (!this.gameIsStarted) {
             this.gameIsStarted = true;
         }
     }
+
+
+    startShooting(interval: number) {
+        setTimeout(() => {
+            const bullet = new Bullet(this.player.mesh.position,  this.scene);
+            this.bullets.push(bullet);
+            this.startShooting(this.player.shootingInterval)
+        }, interval);
+    }
+
 
     togglePause() {
         this.isPaused = !this.isPaused;
@@ -146,42 +162,39 @@ export class Game {
 
 
     spawnEnemy() {
-        const zPosition = -this.roadLength;
+        const zPosition = -this.spawnEneemyStart;
         const enemy = new Enemy(this.lanePositions, zPosition, this.scene);
         this.enemies.push(enemy);
+
+
+        this.bonuses.push(enemy);
+        BonusMin
     }
 
     animate() {
         if (this.isPaused) return;
 
         requestAnimationFrame(() => this.animate());
-
-        // Получаем время, прошедшее с последнего кадра
         const deltaTime = this.clock.getDelta();
+        this.Models.forEach(model => model.update(deltaTime))
 
-        // Обновляем анимации игрока
-        if (this.player) {
-            this.player.update(deltaTime);
-        }
+
+        this.roads = this.roads.filter(road =>{
+          if (road && road.position && road.position.z < 200)
+              return true;
+
+            return road && !road.position;
+        });
+
 
         const lastRoad = this.roads[this.roads.length - 1];
-        if (lastRoad && lastRoad.position.z >= 20) {
-            debugger;
+        if (lastRoad && lastRoad.position && lastRoad.position.z >= 20) {
             const newRoad = new Road(this.scene, new Vector3(lastRoad.position.x, lastRoad.position.y, lastRoad.position.z -  lastRoad.roadLen) );
             this.roads.push(newRoad);
         }
 
-
-        this.roads.forEach((road) => {
-            road.update(deltaTime);
-        });
-
-        this.roads = this.roads.filter(road => road.position && road.position.z < 200);
-
-
         // Обновляем и проверяем врагов
         this.enemies.forEach((enemy, index) => {
-            enemy.update(deltaTime);
 
             // Удаляем врагов, которые вышли за экран
             if (enemy && enemy.mesh && enemy.mesh.position.z > 50) {
@@ -192,17 +205,20 @@ export class Game {
             // Проверка на столкновение с пулями
             this.bullets.forEach((bullet, bulletIndex) => {
                 if (bullet.checkCollision(enemy)) {
+                    debugger
                     this.scene.remove(bullet.mesh);
                     this.bullets.splice(bulletIndex, 1);
-                    this.scene.remove(enemy.mesh);
-                    this.enemies.splice(index, 1);
+                    enemy.hit();
+                    if (enemy.isDied){
+                        this.scene.remove(enemy.mesh);
+                        this.enemies.splice(index, 1);
+                    }
                 }
             });
         });
 
         // Обновляем пули
         this.bullets.forEach((bullet, index) => {
-            bullet.update();
             if (bullet.mesh.position.z < -65) {
                 this.scene.remove(bullet.mesh);
                 this.bullets.splice(index, 1);
@@ -211,21 +227,14 @@ export class Game {
 
         // Обновление игрока
         if (this.player.isMoving) {
-            this.player.move(this.targetLane, this.lanePositions, this.playerSpeed);
+            this.player.move(this.targetLane, this.lanePositions);
         }
 
         this.renderer.render(this.scene, this.camera);
     }
 
-    shoot() {
-        const bullet = new Bullet(this.player.mesh.position,  this.scene);
-        this.bullets.push(bullet);
-    }
+    onKeyDown(event: any) {
 
-    onKeyDown(event) {
-        if (event.code === 'Space') {
-            this.shoot();
-        }
         if ((event.code === 'ArrowLeft' || event.code === "KeyA") && this.targetLane > 0) {
             this.targetLane--;
             this.player.isMoving = true;

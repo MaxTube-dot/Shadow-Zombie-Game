@@ -1,15 +1,15 @@
 import { ModelObject } from "./modelObject.ts";
-import { Box3, Vector3 } from "three";
-import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import {  Vector3 } from "three";
 
 export class Road extends ModelObject {
-    static modelCache: any;
+    scaleX: number = 8;
+    scaleY: number= 8;
+    scaleZ: number= 8;
+    rotation: number = 2 * Math.PI;
     get roadLen(): number {
-        return this._roadLen;
+        return  193;
     }
 
-    private _roadLen: number;
-    protected modelPath = 'src/models/road.fbx';
 
     override update(deltaTime: number): void {
         if (this.mesh && this.mesh.position) {
@@ -22,45 +22,6 @@ export class Road extends ModelObject {
     }
 
     constructor(scene: any, position: Vector3 = new Vector3(0, 0, 0)) {
-        super();
-        this.loadModel().then(model => this.init(scene, position, model) );
-    }
-
-    // Метод для загрузки модели асинхронно
-    private async loadModel(): Promise<any> {
-        try {
-            const model = await this.loadFBX();
-            return model;
-        } catch (error) {
-            console.error('Ошибка при загрузке модели:', error);
-        }
-    }
-
-    // Асинхронная загрузка модели через Promise
-    private loadFBX(): Promise<any> {
-        return new Promise((resolve, reject) => {
-            const fbxLoader = new FBXLoader();
-            fbxLoader.load(
-                this.modelPath,
-                (object: any) => resolve(object),
-                undefined,  // Прогресс-обработчик можно добавить сюда
-                (error) => reject(error)  // Обработчик ошибок
-            );
-        });
-    }
-
-    private init(scene: any, position: Vector3, object: any) {
-        this.mesh = object;
-        this.mesh.scale.set(0.08, 0.08, 0.08); // Устанавливаем масштаб
-        this.mesh.position.set(position.x, position.y, position.z);
-        this.mesh.rotation.y = 2 * Math.PI;
-
-        // Вычисление длины модели через Bounding Box
-        const box = new Box3().setFromObject(this.mesh); // Получаем bounding box модели
-        const size = new Vector3();
-        box.getSize(size); // Получаем размер модели (ширина, высота, глубина)
-
-        this._roadLen = size.z;  // Длина модели по оси Z
-        scene.add(this.mesh);
+        super(position, scene, 'src/models/road.glb');
     }
 }
