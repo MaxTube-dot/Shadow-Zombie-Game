@@ -1,7 +1,5 @@
 import * as THREE from "three";
 import {ModelObject} from "./modelObject.ts";
-import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader.js";
-import {Bullet} from "./bullet.ts";
 import {Vector3} from "three";
 
 export class Player extends ModelObject{

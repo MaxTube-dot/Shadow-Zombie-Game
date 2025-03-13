@@ -5,7 +5,6 @@ import {Enemy} from "./enemy.ts";
 import {Road} from "./road.ts";
 import {Vector3} from "three";
 import {ModelObject} from "./modelObject.ts";
-import {BonusMin} from "./BonusMin.ts";
 
 export class Game {
     private scene: THREE.Scene;
@@ -18,7 +17,6 @@ export class Game {
     private targetLane: number;
     private bullets: any[];
     private enemies: Enemy[];
-    private bonuses: BonusMin[];
     private clock: THREE.Clock;
     private player: Player;
     private roads: Road[];
@@ -29,7 +27,6 @@ export class Game {
             ...this.roads,
             ...this.enemies,
             ...this.bullets,
-            ...this.bonuses,
         ];
         objects.push(this.player)
         return objects;
@@ -166,9 +163,6 @@ export class Game {
         const enemy = new Enemy(this.lanePositions, zPosition, this.scene);
         this.enemies.push(enemy);
 
-
-        this.bonuses.push(enemy);
-        BonusMin
     }
 
     animate() {

@@ -1,6 +1,4 @@
-import * as THREE from "three";
 import {ModelObject} from "./modelObject.ts";
-import {GLTFLoader} from "three/examples/jsm/loaders/GLTFLoader.js";
 import {Vector3} from "three";
 
 // @ts-ignore
