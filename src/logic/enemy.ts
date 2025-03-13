@@ -21,7 +21,7 @@ export class Enemy extends ModelObject {
     modelPath = '';
     private _health = 4;
     constructor(lanePositions: number[], zPosition: number, scene: any) {
-        super(new Vector3(lanePositions[Math.floor(Math.random() * lanePositions.length)], 0.5, zPosition), scene, "src/models/zombie.glb");
+        super(new Vector3(lanePositions[Math.floor(Math.random() * lanePositions.length)], 0.5, zPosition), scene, "public/models/zombie.glb");
     }
 
     update(deltaTime: number) {

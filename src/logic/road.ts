@@ -22,6 +22,6 @@ export class Road extends ModelObject {
     }
 
     constructor(scene: any, position: Vector3 = new Vector3(0, 0, 0)) {
-        super(position, scene, 'src/models/road.glb');
+        super(position, scene, 'public/models/road.glb');
     }
 }

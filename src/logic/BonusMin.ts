@@ -10,7 +10,7 @@ export class BonusMin extends ModelObject implements IBonus {
     rotation: number= 1;
 
     constructor(lanePositions: number[], zPosition: number, scene: any) {
-        super(new Vector3(lanePositions[Math.floor(Math.random() * lanePositions.length)], 0.5, zPosition), scene, "src/models/gift.glb");
+        super(new Vector3(lanePositions[Math.floor(Math.random() * lanePositions.length)], 0.5, zPosition), scene, "public/models/gift.glb");
     }
 
     addBonus(player: Player): void {

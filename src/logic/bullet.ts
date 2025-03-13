@@ -10,7 +10,7 @@ export class Bullet extends ModelObject {
 
 
     constructor(playerPosition: Vector3, scene: THREE.Scene) {
-        super(new Vector3(playerPosition.x, playerPosition.y, playerPosition.z - 3), scene, "src/models/bullet.glb");
+        super(new Vector3(playerPosition.x, playerPosition.y, playerPosition.z - 3), scene, "public/models/bullet.glb");
     }
 
     update() {
