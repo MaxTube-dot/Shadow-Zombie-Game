@@ -28,6 +28,7 @@ export class Player extends ModelObject{
     move(targetLane: number, lanePositions: number[]) {
         if (!this.mesh) return; // Если модель ещё не загружена, ничего не делаем
 
+        debugger;
         const targetX = lanePositions[targetLane];
         this.mesh.position.x = THREE.MathUtils.lerp(this.mesh.position.x, targetX, this.playerSpeed);
 

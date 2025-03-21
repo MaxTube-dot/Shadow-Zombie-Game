@@ -1,80 +1,176 @@
 import * as THREE from 'three';
-import {Player} from "./player.ts";
-import {Bullet} from "./bullet.ts";
-import {Enemy} from "./enemy.ts";
-import {Road} from "./road.ts";
-import {Vector3} from "three";
-import {ModelObject} from "./modelObject.ts";
+import { Level } from "./level";
+import { ObjectManager } from './ObjectManager';
+import { InputManager } from './InputManager';
 
 export class Game {
     private scene: THREE.Scene;
-    private camera: THREE.PerspectiveCamera;
-    private renderer: THREE.WebGLRenderer;
-    private spawnEneemyStart: number;
+    private camera!: THREE.PerspectiveCamera;
+    private renderer!: THREE.WebGLRenderer;
+    private clock: THREE.Clock;
+    private level: Level;
     private gameIsStarted: boolean;
     private isPaused: boolean;
+    private enemySpawnInterval: NodeJS.Timeout | null;
+    
+    private objectManager: ObjectManager;
+    private inputManager: InputManager;
     private lanePositions: number[];
-    private targetLane: number;
-    private bullets: any[];
-    private enemies: Enemy[];
-    private clock: THREE.Clock;
-    private player: Player;
-    private roads: Road[];
 
-
-    get Models() {
-        let objects: ModelObject[] = [
-            ...this.roads,
-            ...this.enemies,
-            ...this.bullets,
-        ];
-        objects.push(this.player)
-        return objects;
-    };
-
-
-
-    constructor() {
+    constructor(levelNumber: number = 1) {
         this.scene = new THREE.Scene();
+        this.setupCamera();
+        this.setupRenderer();
+        this.setupLighting();
+        
+        this.lanePositions = [-5, 0, 5];
+        this.clock = new THREE.Clock();
+        this.level = new Level(levelNumber);
+        this.isPaused = true;
+        this.gameIsStarted = false;
+        this.enemySpawnInterval = null;
+
+        this.objectManager = new ObjectManager(this.scene, this.lanePositions);
+        this.objectManager.createInitialRoads();
+        const player = this.objectManager.initializePlayer(1);
+        this.inputManager = new InputManager(player, 1, this.lanePositions.length, this.lanePositions);
+
+        window.addEventListener('resize', () => this.onWindowResize());
+        this.setupUI();
+    }
+
+    private setupCamera() {
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
         this.camera.position.set(0, 20, 15);
         this.camera.lookAt(0, 0, 0);
+    }
 
+    private setupRenderer() {
         this.renderer = new THREE.WebGLRenderer();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
-
-        this.spawnEneemyStart = 55;
-        this.lanePositions = [-5, 0, 5];
-        this.targetLane = 1;
-        this.bullets = [];
-        this.roads = [];
-        this.enemies = [];
-        this.isPaused = true;
-        this.gameIsStarted = false;
-
-
-        this.clock = new THREE.Clock();
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(0, 10, 10);
-        this.scene.add(light);
-
-        this.createInitialRoads();
-
-        // Передаем сцену в конструктор игрока
-        this.player = new Player(this.lanePositions, this.targetLane, this.scene);
-
-        window.addEventListener('resize', () => this.onWindowResize());
-        window.addEventListener('keydown', (event) => this.onKeyDown(event));
-
-        this.setupUI();
-
-
     }
 
+    private setupLighting() {
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+        mainLight.position.set(0, 30, 20);
+        mainLight.target.position.set(0, 0, -20);
+        this.scene.add(mainLight);
+        this.scene.add(mainLight.target);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        this.scene.add(ambientLight);
+    }
+
+    startGame() {
+        this.isPaused = false;
+        this.showPause();
+        this.hideStartMenu();
+        this.animate();
+        this.startShooting(this.level.getConfig().playerShootingInterval);
+
+        if (!this.gameIsStarted) {
+            this.gameIsStarted = true;
+        }
+
+        this.startEnemySpawning();
+    }
+
+    private startShooting(interval: number) {
+        setTimeout(() => {
+            if (!this.isPaused) {
+                const player = this.objectManager.getAllObjects().find(obj => obj.constructor.name === 'Player');
+                if (player && player.mesh) {
+                    this.objectManager.createBullet(player.mesh.position);
+                }
+                this.startShooting(this.level.getConfig().playerShootingInterval);
+            }
+        }, interval);
+    }
+
+    private startEnemySpawning() {
+        if (this.enemySpawnInterval) {
+            clearInterval(this.enemySpawnInterval);
+        }
+
+        this.enemySpawnInterval = setInterval(() => {
+            if (!this.isPaused && this.level.canSpawnEnemy()) {
+                this.spawnEnemy();
+            }
+        }, this.level.getConfig().spawnEnemyInterval);
+    }
+
+    private spawnEnemy() {
+        const zPosition = -55;
+        this.objectManager.createEnemy(
+            zPosition,
+            this.level.getConfig().enemyHealth,
+            this.level.getConfig().enemySpeed
+        );
+        this.level.onEnemySpawned();
+    }
+
+    private animate() {
+        if (this.isPaused) return;
+
+        requestAnimationFrame(() => this.animate());
+        const deltaTime = this.clock.getDelta();
+
+        // Обновление всех объектов
+        this.objectManager.getAllObjects().forEach(model => model.update(deltaTime));
+        this.objectManager.updateRoads();
+        this.objectManager.updateEnemies();
+        this.objectManager.updateBullets();
+        
+        // Проверка коллизий
+        const defeatedEnemies = this.objectManager.checkCollisions();
+        defeatedEnemies.forEach(() => this.onEnemyDefeated());
+
+        // Обновление ввода
+        this.inputManager.update();
+
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    private onEnemyDefeated() {
+        this.level.onEnemyDefeated();
+        this.updateLevelProgress();
+
+        if (this.level.isLevelComplete()) {
+            this.onLevelComplete();
+        }
+    }
+
+    private onLevelComplete() {
+        this.isPaused = true;
+        alert('Уровень пройден!');
+    }
+
+    private onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    dispose() {
+        if (this.enemySpawnInterval) {
+            clearInterval(this.enemySpawnInterval);
+        }
+        
+        this.inputManager.dispose();
+        this.objectManager.dispose();
+        
+        const progress = document.getElementById('levelProgress');
+        if (progress) {
+            progress.parentElement?.remove();
+        }
+        
+        this.renderer.dispose();
+    }
 
     setupUI() {
         this.showStart();
+        this.updateLevelProgress();
     }
 
     showPause() {
@@ -89,6 +185,30 @@ export class Game {
         pauseButton.id = 'pauseButton';
         pauseButton.onclick = () => this.togglePause();
         document.body.appendChild(pauseButton);
+    }
+
+    
+    togglePause() {
+        this.isPaused = !this.isPaused;
+        if (this.isPaused) {
+            this.showStart()
+            this.hidePauseMenu()
+        } else {
+            this.hideStartMenu();
+            this.showPause();
+            this.animate();
+        }
+    }
+
+    hideStartMenu() {
+        const pauseMenu = document.getElementById('startButton');
+        if (pauseMenu) pauseMenu.remove();
+    }
+
+
+    hidePauseMenu() {
+        const pauseMenu = document.getElementById('pauseButton');
+        if (pauseMenu) pauseMenu.remove();
     }
 
     showStart() {
@@ -106,143 +226,32 @@ export class Game {
         document.body.appendChild(startButton);
     }
 
-    startGame() {
-        this.isPaused = false;
-        this.showPause();
-        this.hideStartMenu();
-        this.animate();
-        this.startShooting(this.player.shootingInterval);
+    updateLevelProgress() {
+        const progress = document.getElementById('levelProgress') || this.createProgressElement();
+        progress.style.width = `${this.level.getLevelProgress()}%`;
+    }
 
+    createProgressElement(): HTMLElement {
+        const progressContainer = document.createElement('div');
+        progressContainer.style.position = 'absolute';
+        progressContainer.style.top = '10px';
+        progressContainer.style.right = '10px';
+        progressContainer.style.width = '200px';
+        progressContainer.style.height = '20px';
+        progressContainer.style.backgroundColor = '#333';
+        progressContainer.style.border = '2px solid #fff';
 
-        if (!this.gameIsStarted) {
-            this.gameIsStarted = true;
-        }
+        const progress = document.createElement('div');
+        progress.id = 'levelProgress';
+        progress.style.width = '0%';
+        progress.style.height = '100%';
+        progress.style.backgroundColor = '#4CAF50';
+        progress.style.transition = 'width 0.3s';
 
-        setInterval(() => {
-            this.spawnEnemy();
-        }, 1000);
+        progressContainer.appendChild(progress);
+        document.body.appendChild(progressContainer);
+        return progress;
     }
 
 
-    startShooting(interval: number) {
-        setTimeout(() => {
-            const bullet = new Bullet(this.player.mesh.position,  this.scene);
-            this.bullets.push(bullet);
-            this.startShooting(this.player.shootingInterval)
-        }, interval);
-    }
-
-
-    togglePause() {
-        this.isPaused = !this.isPaused;
-        if (this.isPaused) {
-            this.showStart()
-            this.hidePauseMenu()
-        } else {
-            this.hideStartMenu();
-            this.showPause();
-            this.animate();
-        }
-    }
-
-    hidePauseMenu() {
-        const pauseMenu = document.getElementById('pauseButton');
-        if (pauseMenu) pauseMenu.remove();
-    }
-
-    hideStartMenu() {
-        const pauseMenu = document.getElementById('startButton');
-        if (pauseMenu) pauseMenu.remove();
-    }
-
-    createInitialRoads() {
-        this.roads.push(new Road(this.scene));
-    }
-
-
-    spawnEnemy() {
-        const zPosition = -this.spawnEneemyStart;
-        const enemy = new Enemy(this.lanePositions, zPosition, this.scene);
-        this.enemies.push(enemy);
-
-    }
-
-    animate() {
-        if (this.isPaused) return;
-
-        requestAnimationFrame(() => this.animate());
-        const deltaTime = this.clock.getDelta();
-        this.Models.forEach(model => model.update(deltaTime))
-
-
-        this.roads = this.roads.filter(road =>{
-          if (road && road.position && road.position.z < 200)
-              return true;
-
-            return road && !road.position;
-        });
-
-
-        const lastRoad = this.roads[this.roads.length - 1];
-        if (lastRoad && lastRoad.position && lastRoad.position.z >= 20) {
-            const newRoad = new Road(this.scene, new Vector3(lastRoad.position.x, lastRoad.position.y, lastRoad.position.z -  lastRoad.roadLen) );
-            this.roads.push(newRoad);
-        }
-
-        // Обновляем и проверяем врагов
-        this.enemies.forEach((enemy, index) => {
-
-            // Удаляем врагов, которые вышли за экран
-            if (enemy && enemy.mesh && enemy.mesh.position.z > 50) {
-                this.scene.remove(enemy.mesh);
-                this.enemies.splice(index, 1);
-            }
-
-            // Проверка на столкновение с пулями
-            this.bullets.forEach((bullet, bulletIndex) => {
-                if (bullet.checkCollision(enemy)) {
-                    this.scene.remove(bullet.mesh);
-                    this.bullets.splice(bulletIndex, 1);
-                    enemy.hit();
-                    if (enemy.isDied){
-                        this.scene.remove(enemy.mesh);
-                        this.enemies.splice(index, 1);
-                    }
-                }
-            });
-        });
-
-        // Обновляем пули
-        this.bullets.forEach((bullet, index) => {
-            if (bullet.mesh.position.z < -65) {
-                this.scene.remove(bullet.mesh);
-                this.bullets.splice(index, 1);
-            }
-        });
-
-        // Обновление игрока
-        if (this.player.isMoving) {
-            this.player.move(this.targetLane, this.lanePositions);
-        }
-
-        this.renderer.render(this.scene, this.camera);
-    }
-
-    onKeyDown(event: any) {
-
-        if ((event.code === 'ArrowLeft' || event.code === "KeyA") && this.targetLane > 0) {
-            this.targetLane--;
-            this.player.isMoving = true;
-        }
-        if ((event.code === 'ArrowRight' || event.code === "KeyD") && this.targetLane < this.lanePositions.length - 1) {
-            this.targetLane++;
-            this.player.isMoving = true;
-        }
-    }
-
-    onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-    }
 }
