@@ -69,9 +69,7 @@ export class Game {
 
         this.setupUI();
 
-        setInterval(() => {
-            this.spawnEnemy();
-        }, 1000);
+
     }
 
 
@@ -119,6 +117,10 @@ export class Game {
         if (!this.gameIsStarted) {
             this.gameIsStarted = true;
         }
+
+        setInterval(() => {
+            this.spawnEnemy();
+        }, 1000);
     }
 
 
@@ -199,7 +201,6 @@ export class Game {
             // Проверка на столкновение с пулями
             this.bullets.forEach((bullet, bulletIndex) => {
                 if (bullet.checkCollision(enemy)) {
-                    debugger
                     this.scene.remove(bullet.mesh);
                     this.bullets.splice(bulletIndex, 1);
                     enemy.hit();

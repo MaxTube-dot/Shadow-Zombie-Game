@@ -22,7 +22,7 @@ export class Player extends ModelObject{
 
 
     constructor(lanePositions: number[], targetLane: number, scene: THREE.Scene) {
-        super(new Vector3(lanePositions[targetLane], 0.5, 6), scene, "public/models/player.glb");
+        super(new Vector3(lanePositions[targetLane], 0.5, 6), scene, "/models/player.glb");
     }
 
     move(targetLane: number, lanePositions: number[]) {

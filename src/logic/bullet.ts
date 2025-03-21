@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {ModelObject} from "./modelObject.ts";
 import {Vector3} from "three";
 
+
 export class Bullet extends ModelObject {
     scaleX: number = 20;
     scaleY: number = 20;
@@ -10,11 +11,13 @@ export class Bullet extends ModelObject {
 
 
     constructor(playerPosition: Vector3, scene: THREE.Scene) {
-        super(new Vector3(playerPosition.x, playerPosition.y, playerPosition.z - 3), scene, "public/models/bullet.glb");
+        super(new Vector3(playerPosition.x, playerPosition.y, playerPosition.z - 3), scene, '/models/bullet.glb');
     }
 
     update() {
-        this.mesh.position.z -= 0.1;
+        if (this.mesh && this.mesh.position && this.mesh.position.z){
+            this.mesh.position.z -= 0.1;
+        }
     }
 
     checkCollision(enemy: any) {
