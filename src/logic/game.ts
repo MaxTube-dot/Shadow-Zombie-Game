@@ -67,7 +67,6 @@ export class Game {
     }
 
     startGame() {
-        debugger;
         this.isPaused = false;
         this.levelManager.startLevel();
         this.uiManager.hideAll();
@@ -81,6 +80,7 @@ export class Game {
         }
 
         this.startEnemySpawning();
+        console.log('Игра запущена, прогресс сброшен');
     }
 
     private startShooting(interval: number) {
@@ -125,6 +125,7 @@ export class Game {
     private onEnemyDefeated() {
         this.levelManager.onEnemyDefeated();
         const progress = this.levelManager.getLevelProgress();
+        console.log(`Прогресс уровня ${this.levelManager.getCurrentLevelNumber()}: ${progress}`);
         this.uiManager.updateLevelProgress(progress);
 
         if (this.levelManager.isLevelComplete()) {
@@ -133,6 +134,7 @@ export class Game {
     }
 
     private onLevelComplete() {
+        console.log('onLevelComplete начал выполнение');
         this.isPaused = true;
         this.gameEngine.pause();
         
@@ -148,8 +150,6 @@ export class Game {
 
         this.objectManager.clearEnemiesAndBullets();
 
-
-        debugger;
         const statistics = this.levelManager.getStatistics();
         console.log(`Статистика уровня ${this.levelManager.getCurrentLevelNumber()}:`);
         console.log(`- Побеждено врагов: ${statistics.enemiesDefeated}`);
@@ -159,12 +159,13 @@ export class Game {
         console.log(`- Успешных выстрелов: ${statistics.successfulShots}`);
 
         if (this.levelManager.isGameComplete()) {
+            console.log('Игра завершена, показываем экран завершения');
             this.uiManager.showGameComplete(
                 this.levelManager.getCurrentLevelNumber(),
                 this.levelManager.getStatistics()
             );
         } else {
-            debugger;   
+            console.log('Показываем экран завершения уровня');
             this.uiManager.showLevelComplete(
                 this.levelManager.getCurrentLevelNumber(),
                 this.levelManager.getStatistics()
@@ -173,12 +174,11 @@ export class Game {
     }
 
     private startNextLevel() {
-        debugger;
         if (this.levelManager.hasNextLevel()) {
             const success = this.levelManager.nextLevel();
             if (success) {
                 this.resetGameState();
-                this.showLevelMenu();
+                this.startGame();
             } else {
                 console.error('Failed to start next level');
                 this.uiManager.showError('Не удалось загрузить следующий уровень');
@@ -198,8 +198,11 @@ export class Game {
             this.shootingInterval = null;
         }
 
-        this.objectManager.clearEnemiesAndBullets();
-
+        // Очищаем все объекты
+        this.objectManager.dispose();
+        
+        // Создаем новые объекты
+        this.objectManager = new ObjectManager(this.sceneManager.getScene(), this.lanePositions);
         this.objectManager.createInitialRoads();
         const player = this.objectManager.initializePlayer(1);
         

@@ -78,9 +78,11 @@ export class UIManager {
     }
 
     showLevelComplete(levelNumber: number, stats: LevelStatistics) {
+        console.log('showLevelComplete начал выполнение');
         this.hideAll();
         let menuContainer = document.getElementById('levelCompleteMenu');
         if (!menuContainer) {
+            console.log('Создаем новый контейнер меню');
             menuContainer = document.createElement('div');
             menuContainer.id = 'levelCompleteMenu';
             menuContainer.style.position = 'absolute';
@@ -105,6 +107,13 @@ export class UIManager {
             const statsContainer = document.createElement('div');
             statsContainer.style.marginBottom = '20px';
             statsContainer.style.fontSize = '18px';
+            statsContainer.innerHTML = `
+                <p>Время: ${Math.round(stats.timeSpent)} сек.</p>
+                <p>Уничтожено врагов: ${stats.enemiesDefeated}</p>
+                <p>Точность: ${Math.round(stats.accuracy)}%</p>
+                <p>Выстрелов: ${stats.totalShots}</p>
+                <p>Попаданий: ${stats.successfulShots}</p>
+            `;
 
             const nextButton = document.createElement('button');
             nextButton.innerText = 'Следующий уровень';
@@ -123,7 +132,9 @@ export class UIManager {
             menuContainer.appendChild(statsContainer);
             menuContainer.appendChild(nextButton);
             this.uiContainer.appendChild(menuContainer);
+            console.log('Меню создано и добавлено в DOM');
         } else {
+            console.log('Обновляем существующий контейнер меню');
             // Обновляем существующий элемент
             const title = menuContainer.querySelector('h2');
             if (title) {
@@ -141,6 +152,7 @@ export class UIManager {
             }
             menuContainer.style.display = 'block';
         }
+        console.log('showLevelComplete завершил выполнение');
     }
 
     showPause() {
@@ -162,8 +174,10 @@ export class UIManager {
     }
 
     updateLevelProgress(progress: number) {
+        console.log(`Обновление прогресс-бара: ${progress}%`);
         const progressElement = document.getElementById('levelProgress') || this.createProgressElement();
         progressElement.style.width = `${progress}%`;
+        console.log('Прогресс-бар обновлен');
     }
 
     private createProgressElement(): HTMLElement {
