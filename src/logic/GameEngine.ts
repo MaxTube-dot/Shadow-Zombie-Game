@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ObjectManager } from './ObjectManager';
 import { InputManager } from './InputManager';
+import { HostYandexGame } from './HostYandexGame';
 
 export class GameEngine {
     private scene: THREE.Scene;
@@ -11,6 +12,7 @@ export class GameEngine {
     private inputManager: InputManager;
     private isPaused: boolean = true;
     private onEnemyDefeated: () => void;
+    private hostGame: HostYandexGame;
 
     constructor(
         scene: THREE.Scene, 
@@ -23,6 +25,7 @@ export class GameEngine {
         this.renderer = renderer;
         this.clock = new THREE.Clock();
         this.onEnemyDefeated = onEnemyDefeated;
+        this.hostGame = HostYandexGame.getInstance();
     }
 
     setManagers(objectManager: ObjectManager, inputManager: InputManager) {
@@ -70,5 +73,11 @@ export class GameEngine {
     dispose() {
         this.pause();
         this.renderer.dispose();
+    }
+
+    private checkCollisions() {
+        if (this.checkPlayerEnemyCollision()) {
+            this.hostGame.onPlayerDeath();
+        }
     }
 } 

@@ -4,6 +4,8 @@ import { UIManager } from './UIManager';
 import { GameEngine } from './GameEngine';
 import { SceneManager } from './SceneManager';
 import { LevelManager } from './LevelManager';
+import { HostYandexGame } from './HostYandexGame';
+import { AchievementManager } from './AchievementManager';
 
 export class Game {
     private gameIsStarted: boolean;
@@ -18,6 +20,8 @@ export class Game {
     private uiManager: UIManager;
     private levelManager: LevelManager;
     private lanePositions: number[];
+    private hostGame: HostYandexGame;
+    private achievementManager: AchievementManager;
 
     constructor(initialLevel: number = 1) {
         this.sceneManager = new SceneManager();
@@ -27,6 +31,9 @@ export class Game {
         this.gameIsStarted = false;
         this.enemySpawnInterval = null;
         this.shootingInterval = null;
+        this.hostGame = HostYandexGame.getInstance();
+        this.hostGame.init();
+        this.achievementManager = AchievementManager.getInstance();
 
         this.initializeManagers();
         this.setupEventListeners();
@@ -69,6 +76,7 @@ export class Game {
     startGame() {
         this.isPaused = false;
         this.levelManager.startLevel();
+        this.hostGame.startLevel(this.levelManager.getCurrentLevelNumber());
         this.uiManager.hideAll();
         this.uiManager.showPause();
         this.uiManager.updateLevelProgress(0);
@@ -158,6 +166,12 @@ export class Game {
         console.log(`- Всего выстрелов: ${statistics.totalShots}`);
         console.log(`- Успешных выстрелов: ${statistics.successfulShots}`);
 
+        this.achievementManager.checkAchievements(
+            this.levelManager.getCurrentLevelNumber(),
+            statistics.enemiesDefeated,
+            statistics.accuracy
+        );
+
         if (this.levelManager.isGameComplete()) {
             console.log('Игра завершена, показываем экран завершения');
             this.uiManager.showGameComplete(
@@ -171,6 +185,8 @@ export class Game {
                 this.levelManager.getStatistics()
             );
         }
+
+        this.hostGame.endLevel(this.levelManager.getCurrentLevelNumber(), true);
     }
 
     private startNextLevel() {
@@ -215,6 +231,7 @@ export class Game {
         if (this.isPaused) {
             this.gameEngine.pause();
             this.uiManager.showPauseMenu();
+            this.hostGame.onGamePause();
         } else {
             this.uiManager.hideAll();
             this.uiManager.showPause();
