@@ -8,6 +8,7 @@ export class Player extends ModelObject{
     scaleZ: number = 20;
     rotation: number = Math.PI;
     playerSpeed = 0.1;
+    private isShooting: boolean = true;
 
     set shootingInterval(value: number) {
         this._shootingInterval = value;
@@ -28,12 +29,19 @@ export class Player extends ModelObject{
     move(targetLane: number, lanePositions: number[]) {
         if (!this.mesh) return; // Если модель ещё не загружена, ничего не делаем
 
-        debugger;
         const targetX = lanePositions[targetLane];
         this.mesh.position.x = THREE.MathUtils.lerp(this.mesh.position.x, targetX, this.playerSpeed);
 
         if (Math.abs(this.mesh.position.x - targetX) < 0.01) {
             this.mesh.position.x = targetX;
         }
+    }
+
+    stopShooting() {
+        this.isShooting = false;
+    }
+
+    canShoot(): boolean {
+        return this.isShooting;
     }
 }

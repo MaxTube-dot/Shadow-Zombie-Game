@@ -63,4 +63,12 @@ export abstract class ModelObject {
 
         return false;
     };
+
+    stopShooting(): void {
+        // По умолчанию ничего не делаем
+    }
+
+    canShoot(): boolean {
+        return true; // По умолчанию можно стрелять
+    }
 }

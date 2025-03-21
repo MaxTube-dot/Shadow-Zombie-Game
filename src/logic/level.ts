@@ -24,14 +24,14 @@ export class Level {
         // Настройки уровней
         const levelConfigs: { [key: number]: LevelConfig } = {
             1: {
-                spawnEnemyInterval: 2000,
+                spawnEnemyInterval: 1000,
                 enemySpeed: 5,
                 enemyHealth: 1,
                 playerShootingInterval: 500,
                 bulletSpeed: 15,
                 roadSpeed: 10,
                 maxEnemies: 20,
-                enemiesDefeatedToWin: 10
+                enemiesDefeatedToWin: 3
             },
             2: {
                 spawnEnemyInterval: 1500,

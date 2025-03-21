@@ -21,6 +21,8 @@ export class Bullet extends ModelObject {
     }
 
     checkCollision(enemy: any) {
+        if (!this.mesh || !enemy.mesh) return false;
+        
         const enemyBox = new THREE.Box3().setFromObject(enemy.mesh);
         const bulletBox = new THREE.Box3().setFromObject(this.mesh);
         return bulletBox.intersectsBox(enemyBox);

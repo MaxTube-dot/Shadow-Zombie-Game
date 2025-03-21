@@ -1,73 +1,80 @@
-import * as THREE from 'three';
-import { Level } from "./level";
 import { ObjectManager } from './ObjectManager';
 import { InputManager } from './InputManager';
+import { UIManager } from './UIManager';
+import { GameEngine } from './GameEngine';
+import { SceneManager } from './SceneManager';
+import { LevelManager } from './LevelManager';
 
 export class Game {
-    private scene: THREE.Scene;
-    private camera!: THREE.PerspectiveCamera;
-    private renderer!: THREE.WebGLRenderer;
-    private clock: THREE.Clock;
-    private level: Level;
     private gameIsStarted: boolean;
     private isPaused: boolean;
-    private enemySpawnInterval: NodeJS.Timeout | null;
+    private enemySpawnInterval: number | null;
+    private shootingInterval: number | null;
     
+    private sceneManager: SceneManager;
+    private gameEngine: GameEngine;
     private objectManager: ObjectManager;
     private inputManager: InputManager;
+    private uiManager: UIManager;
+    private levelManager: LevelManager;
     private lanePositions: number[];
 
-    constructor(levelNumber: number = 1) {
-        this.scene = new THREE.Scene();
-        this.setupCamera();
-        this.setupRenderer();
-        this.setupLighting();
-        
+    constructor(initialLevel: number = 1) {
+        this.sceneManager = new SceneManager();
         this.lanePositions = [-5, 0, 5];
-        this.clock = new THREE.Clock();
-        this.level = new Level(levelNumber);
+        this.levelManager = new LevelManager(initialLevel);
         this.isPaused = true;
         this.gameIsStarted = false;
         this.enemySpawnInterval = null;
+        this.shootingInterval = null;
 
-        this.objectManager = new ObjectManager(this.scene, this.lanePositions);
+        this.initializeManagers();
+        this.setupEventListeners();
+        this.showLevelMenu();
+    }
+
+    private initializeManagers() {
+        const scene = this.sceneManager.getScene();
+        
+        this.objectManager = new ObjectManager(scene, this.lanePositions);
         this.objectManager.createInitialRoads();
         const player = this.objectManager.initializePlayer(1);
+        
         this.inputManager = new InputManager(player, 1, this.lanePositions.length, this.lanePositions);
+        
+        this.gameEngine = new GameEngine(
+            scene,
+            this.sceneManager.getCamera(),
+            this.sceneManager.getRenderer(),
+            () => this.onEnemyDefeated()
+        );
+        this.gameEngine.setManagers(this.objectManager, this.inputManager);
 
-        window.addEventListener('resize', () => this.onWindowResize());
-        this.setupUI();
+        this.uiManager = new UIManager(
+            () => this.startGame(),
+            () => this.togglePause(),
+            () => this.startNextLevel()
+        );
     }
 
-    private setupCamera() {
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
-        this.camera.position.set(0, 20, 15);
-        this.camera.lookAt(0, 0, 0);
+    private setupEventListeners() {
+        window.addEventListener('resize', () => this.gameEngine.onWindowResize());
     }
 
-    private setupRenderer() {
-        this.renderer = new THREE.WebGLRenderer();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(this.renderer.domElement);
-    }
-
-    private setupLighting() {
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-        mainLight.position.set(0, 30, 20);
-        mainLight.target.position.set(0, 0, -20);
-        this.scene.add(mainLight);
-        this.scene.add(mainLight.target);
-
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-        this.scene.add(ambientLight);
+    private showLevelMenu() {
+        
+        this.uiManager.showLevelMenu(this.levelManager.getCurrentLevelNumber());
     }
 
     startGame() {
+        debugger;
         this.isPaused = false;
-        this.showPause();
-        this.hideStartMenu();
-        this.animate();
-        this.startShooting(this.level.getConfig().playerShootingInterval);
+        this.levelManager.startLevel();
+        this.uiManager.hideAll();
+        this.uiManager.showPause();
+        this.uiManager.updateLevelProgress(0);
+        this.gameEngine.start();
+        this.startShooting(this.levelManager.getCurrentLevel().getConfig().playerShootingInterval);
 
         if (!this.gameIsStarted) {
             this.gameIsStarted = true;
@@ -77,13 +84,17 @@ export class Game {
     }
 
     private startShooting(interval: number) {
-        setTimeout(() => {
+        if (this.shootingInterval) {
+            clearInterval(this.shootingInterval);
+        }
+
+        this.shootingInterval = window.setInterval(() => {
             if (!this.isPaused) {
                 const player = this.objectManager.getAllObjects().find(obj => obj.constructor.name === 'Player');
-                if (player && player.mesh) {
+                if (player && player.mesh && player.canShoot()) {
                     this.objectManager.createBullet(player.mesh.position);
+                    this.levelManager.onShot();
                 }
-                this.startShooting(this.level.getConfig().playerShootingInterval);
             }
         }, interval);
     }
@@ -93,165 +104,134 @@ export class Game {
             clearInterval(this.enemySpawnInterval);
         }
 
-        this.enemySpawnInterval = setInterval(() => {
-            if (!this.isPaused && this.level.canSpawnEnemy()) {
+        this.enemySpawnInterval = window.setInterval(() => {
+            if (!this.isPaused && this.levelManager.getCurrentLevel().canSpawnEnemy()) {
                 this.spawnEnemy();
             }
-        }, this.level.getConfig().spawnEnemyInterval);
+        }, this.levelManager.getCurrentLevel().getConfig().spawnEnemyInterval);
     }
 
     private spawnEnemy() {
         const zPosition = -55;
+        const currentLevel = this.levelManager.getCurrentLevel();
         this.objectManager.createEnemy(
             zPosition,
-            this.level.getConfig().enemyHealth,
-            this.level.getConfig().enemySpeed
+            currentLevel.getConfig().enemyHealth,
+            currentLevel.getConfig().enemySpeed
         );
-        this.level.onEnemySpawned();
-    }
-
-    private animate() {
-        if (this.isPaused) return;
-
-        requestAnimationFrame(() => this.animate());
-        const deltaTime = this.clock.getDelta();
-
-        // Обновление всех объектов
-        this.objectManager.getAllObjects().forEach(model => model.update(deltaTime));
-        this.objectManager.updateRoads();
-        this.objectManager.updateEnemies();
-        this.objectManager.updateBullets();
-        
-        // Проверка коллизий
-        const defeatedEnemies = this.objectManager.checkCollisions();
-        defeatedEnemies.forEach(() => this.onEnemyDefeated());
-
-        // Обновление ввода
-        this.inputManager.update();
-
-        this.renderer.render(this.scene, this.camera);
+        currentLevel.onEnemySpawned();
     }
 
     private onEnemyDefeated() {
-        this.level.onEnemyDefeated();
-        this.updateLevelProgress();
+        this.levelManager.onEnemyDefeated();
+        const progress = this.levelManager.getLevelProgress();
+        this.uiManager.updateLevelProgress(progress);
 
-        if (this.level.isLevelComplete()) {
+        if (this.levelManager.isLevelComplete()) {
             this.onLevelComplete();
         }
     }
 
     private onLevelComplete() {
         this.isPaused = true;
-        alert('Уровень пройден!');
+        this.gameEngine.pause();
+        
+        if (this.enemySpawnInterval) {
+            clearInterval(this.enemySpawnInterval);
+            this.enemySpawnInterval = null;
+        }
+
+        if (this.shootingInterval) {
+            clearInterval(this.shootingInterval);
+            this.shootingInterval = null;
+        }
+
+        this.objectManager.clearEnemiesAndBullets();
+
+
+        debugger;
+        const statistics = this.levelManager.getStatistics();
+        console.log(`Статистика уровня ${this.levelManager.getCurrentLevelNumber()}:`);
+        console.log(`- Побеждено врагов: ${statistics.enemiesDefeated}`);
+        console.log(`- Затраченное время: ${statistics.timeSpent.toFixed(2)} сек`);
+        console.log(`- Точность: ${statistics.accuracy.toFixed(2)}%`);
+        console.log(`- Всего выстрелов: ${statistics.totalShots}`);
+        console.log(`- Успешных выстрелов: ${statistics.successfulShots}`);
+
+        if (this.levelManager.isGameComplete()) {
+            this.uiManager.showGameComplete(
+                this.levelManager.getCurrentLevelNumber(),
+                this.levelManager.getStatistics()
+            );
+        } else {
+            debugger;   
+            this.uiManager.showLevelComplete(
+                this.levelManager.getCurrentLevelNumber(),
+                this.levelManager.getStatistics()
+            );
+        }
     }
 
-    private onWindowResize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    private startNextLevel() {
+        debugger;
+        if (this.levelManager.hasNextLevel()) {
+            const success = this.levelManager.nextLevel();
+            if (success) {
+                this.resetGameState();
+                this.showLevelMenu();
+            } else {
+                console.error('Failed to start next level');
+                this.uiManager.showError('Не удалось загрузить следующий уровень');
+            }
+        }
+    }
+
+    private resetGameState() {
+        this.isPaused = true;
+        
+        if (this.enemySpawnInterval) {
+            clearInterval(this.enemySpawnInterval);
+            this.enemySpawnInterval = null;
+        }
+        if (this.shootingInterval) {
+            clearInterval(this.shootingInterval);
+            this.shootingInterval = null;
+        }
+
+        this.objectManager.clearEnemiesAndBullets();
+
+        this.objectManager.createInitialRoads();
+        const player = this.objectManager.initializePlayer(1);
+        
+        this.inputManager = new InputManager(player, 1, this.lanePositions.length, this.lanePositions);
+        this.gameEngine.setManagers(this.objectManager, this.inputManager);
+    }
+
+    togglePause() {
+        this.isPaused = !this.isPaused;
+        if (this.isPaused) {
+            this.gameEngine.pause();
+            this.uiManager.showPauseMenu();
+        } else {
+            this.uiManager.hideAll();
+            this.uiManager.showPause();
+            this.uiManager.updateLevelProgress(this.levelManager.getLevelProgress());
+            this.gameEngine.start();
+        }
     }
 
     dispose() {
         if (this.enemySpawnInterval) {
             clearInterval(this.enemySpawnInterval);
         }
+        if (this.shootingInterval) {
+            clearInterval(this.shootingInterval);
+        }
         
         this.inputManager.dispose();
         this.objectManager.dispose();
-        
-        const progress = document.getElementById('levelProgress');
-        if (progress) {
-            progress.parentElement?.remove();
-        }
-        
-        this.renderer.dispose();
+        this.uiManager.dispose();
+        this.gameEngine.dispose();
+        this.sceneManager.dispose();
     }
-
-    setupUI() {
-        this.showStart();
-        this.updateLevelProgress();
-    }
-
-    showPause() {
-        const pauseButton = document.createElement('button');
-        pauseButton.innerText = 'Пауза';
-        pauseButton.style.position = 'absolute';
-        pauseButton.style.top = '10px';
-        pauseButton.style.left = '10px';
-        pauseButton.style.fontSize = '18px';
-        pauseButton.style.padding = '10px';
-        pauseButton.style.cursor = 'pointer';
-        pauseButton.id = 'pauseButton';
-        pauseButton.onclick = () => this.togglePause();
-        document.body.appendChild(pauseButton);
-    }
-
-    
-    togglePause() {
-        this.isPaused = !this.isPaused;
-        if (this.isPaused) {
-            this.showStart()
-            this.hidePauseMenu()
-        } else {
-            this.hideStartMenu();
-            this.showPause();
-            this.animate();
-        }
-    }
-
-    hideStartMenu() {
-        const pauseMenu = document.getElementById('startButton');
-        if (pauseMenu) pauseMenu.remove();
-    }
-
-
-    hidePauseMenu() {
-        const pauseMenu = document.getElementById('pauseButton');
-        if (pauseMenu) pauseMenu.remove();
-    }
-
-    showStart() {
-        const startButton = document.createElement('button');
-        startButton.innerText = 'Начать игру';
-        startButton.style.position = 'absolute';
-        startButton.style.top = '50%';
-        startButton.style.left = '50%';
-        startButton.style.transform = 'translate(-50%, -50%)';
-        startButton.style.fontSize = '20px';
-        startButton.style.padding = '10px';
-        startButton.style.cursor = 'pointer';
-        startButton.id = 'startButton';
-        startButton.onclick = () => this.startGame();
-        document.body.appendChild(startButton);
-    }
-
-    updateLevelProgress() {
-        const progress = document.getElementById('levelProgress') || this.createProgressElement();
-        progress.style.width = `${this.level.getLevelProgress()}%`;
-    }
-
-    createProgressElement(): HTMLElement {
-        const progressContainer = document.createElement('div');
-        progressContainer.style.position = 'absolute';
-        progressContainer.style.top = '10px';
-        progressContainer.style.right = '10px';
-        progressContainer.style.width = '200px';
-        progressContainer.style.height = '20px';
-        progressContainer.style.backgroundColor = '#333';
-        progressContainer.style.border = '2px solid #fff';
-
-        const progress = document.createElement('div');
-        progress.id = 'levelProgress';
-        progress.style.width = '0%';
-        progress.style.height = '100%';
-        progress.style.backgroundColor = '#4CAF50';
-        progress.style.transition = 'width 0.3s';
-
-        progressContainer.appendChild(progress);
-        document.body.appendChild(progressContainer);
-        return progress;
-    }
-
-
 }

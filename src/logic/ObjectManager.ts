@@ -67,7 +67,7 @@ export class ObjectManager {
 
     updateBullets() {
         this.bullets.forEach((bullet, index) => {
-            if (bullet.mesh.position.z < -65) {
+            if (bullet && bullet.mesh && bullet.mesh.position && bullet.mesh.position.z < -65) {
                 this.removeBullet(index);
             }
         });
@@ -75,19 +75,27 @@ export class ObjectManager {
 
     checkCollisions(): Enemy[] {
         const defeatedEnemies: Enemy[] = [];
+        const bulletsToRemove: number[] = [];
+        const enemiesToRemove: number[] = [];
         
         this.enemies.forEach((enemy, enemyIndex) => {
             this.bullets.forEach((bullet, bulletIndex) => {
                 if (bullet.checkCollision(enemy)) {
-                    this.removeBullet(bulletIndex);
+                    if (!bulletsToRemove.includes(bulletIndex)) {
+                        bulletsToRemove.push(bulletIndex);
+                    }
                     enemy.hit();
-                    if (enemy.isDied) {
-                        this.removeEnemy(enemyIndex);
+                    if (enemy.isDied && !enemiesToRemove.includes(enemyIndex)) {
+                        enemiesToRemove.push(enemyIndex);
                         defeatedEnemies.push(enemy);
                     }
                 }
             });
         });
+
+        // Удаляем пули и врагов в обратном порядке, чтобы не нарушить индексы
+        bulletsToRemove.sort((a, b) => b - a).forEach(index => this.removeBullet(index));
+        enemiesToRemove.sort((a, b) => b - a).forEach(index => this.removeEnemy(index));
 
         return defeatedEnemies;
     }
@@ -112,11 +120,48 @@ export class ObjectManager {
         return [...this.roads, ...this.enemies, ...this.bullets, this.player];
     }
 
-    dispose() {
-        [...this.roads, ...this.enemies, ...this.bullets, this.player].forEach(object => {
-            if (object && object.mesh) {
-                this.scene.remove(object.mesh);
+    clearEnemiesAndBullets() {
+        this.enemies.forEach(enemy => {
+            if (enemy && enemy.mesh) {
+                this.scene.remove(enemy.mesh);
             }
         });
+        this.enemies = [];
+
+        this.bullets.forEach(bullet => {
+            if (bullet && bullet.mesh) {
+                this.scene.remove(bullet.mesh);
+            }
+        });
+        this.bullets = [];
+    }
+
+    dispose() {
+        // Очищаем все объекты
+        this.roads.forEach(road => {
+            if (road && road.mesh) {
+                this.scene.remove(road.mesh);
+            }
+        });
+        this.roads = [];
+
+        this.enemies.forEach(enemy => {
+            if (enemy && enemy.mesh) {
+                this.scene.remove(enemy.mesh);
+            }
+        });
+        this.enemies = [];
+
+        this.bullets.forEach(bullet => {
+            if (bullet && bullet.mesh) {
+                this.scene.remove(bullet.mesh);
+            }
+        });
+        this.bullets = [];
+
+        if (this.player && this.player.mesh) {
+            this.scene.remove(this.player.mesh);
+            this.player = null;
+        }
     }
 } 
