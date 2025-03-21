@@ -155,7 +155,15 @@ export class UIManager {
         console.log('showLevelComplete завершил выполнение');
     }
 
+    private removeProgressElement() {
+        const progressContainer = document.querySelector('div[style*="position: absolute"][style*="top: 10px"][style*="right: 10px"]');
+        if (progressContainer) {
+            progressContainer.remove();
+        }
+    }
+
     showPause() {
+        this.removeProgressElement();
         const pauseButton = document.createElement('button');
         pauseButton.innerText = 'Пауза';
         pauseButton.style.position = 'absolute';
@@ -203,12 +211,14 @@ export class UIManager {
     }
 
     hideAll() {
-        ['levelMenu', 'levelCompleteMenu', 'gameCompleteMenu', 'pauseMenu', 'pauseButton', 'errorMessage'].forEach(id => {
-            const element = document.getElementById(id);
-            if (element) {
-                element.style.display = 'none';
+        const elements = this.uiContainer.children;
+        for (let i = elements.length - 1; i >= 0; i--) {
+            const element = elements[i];
+            if (element.id !== 'pauseButton' && element.id !== 'levelProgress') {
+                element.remove();
             }
-        });
+        }
+        this.removeProgressElement();
     }
 
     dispose() {
